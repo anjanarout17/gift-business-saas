@@ -20,3 +20,11 @@ drop policy if exists "business owners can update assets" on storage.objects;
 create policy "business owners can update assets" on storage.objects for update to authenticated using(bucket_id='business-assets' and exists(select 1 from public.businesses b where b.id=(storage.foldername(name))[1]::uuid and b.owner_id=auth.uid())) with check(bucket_id='business-assets' and exists(select 1 from public.businesses b where b.id=(storage.foldername(name))[1]::uuid and b.owner_id=auth.uid()));
 drop policy if exists "business owners can delete assets" on storage.objects;
 create policy "business owners can delete assets" on storage.objects for delete to authenticated using(bucket_id='business-assets' and exists(select 1 from public.businesses b where b.id=(storage.foldername(name))[1]::uuid and b.owner_id=auth.uid()));
+
+create table if not exists public.enquiries(id uuid primary key default gen_random_uuid(),business_id uuid not null references public.businesses(id) on delete cascade,product_id uuid references public.products(id) on delete set null,customer_name text,customer_phone text,message text,status text not null default 'new',created_at timestamptz not null default now());
+create index if not exists enquiries_business_id_idx on public.enquiries(business_id);create index if not exists enquiries_created_at_idx on public.enquiries(created_at desc);
+alter table public.enquiries enable row level security;
+drop policy if exists "business owners manage enquiries" on public.enquiries;
+create policy "business owners manage enquiries" on public.enquiries for all to authenticated using(exists(select 1 from public.businesses b where b.id=business_id and b.owner_id=auth.uid())) with check(exists(select 1 from public.businesses b where b.id=business_id and b.is_published=true));
+drop policy if exists "public can create enquiries" on public.enquiries;
+create policy "public can create enquiries" on public.enquiries for insert to anon,authenticated with check(exists(select 1 from public.businesses b where b.id=business_id and b.is_published=true));
