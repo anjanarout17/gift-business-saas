@@ -28,3 +28,9 @@ drop policy if exists "business owners manage enquiries" on public.enquiries;
 create policy "business owners manage enquiries" on public.enquiries for all to authenticated using(exists(select 1 from public.businesses b where b.id=business_id and b.owner_id=auth.uid())) with check(exists(select 1 from public.businesses b where b.id=business_id and b.is_published=true));
 drop policy if exists "public can create enquiries" on public.enquiries;
 create policy "public can create enquiries" on public.enquiries for insert to anon,authenticated with check(exists(select 1 from public.businesses b where b.id=business_id and b.is_published=true));
+
+create table if not exists public.orders(id uuid primary key default gen_random_uuid(),business_id uuid not null references public.businesses(id) on delete cascade,enquiry_id uuid references public.enquiries(id) on delete set null,product_id uuid references public.products(id) on delete set null,customer_name text,customer_phone text,amount numeric(10,2) not null default 0,status text not null default 'new',created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+create index if not exists orders_business_id_idx on public.orders(business_id);create index if not exists orders_status_idx on public.orders(status);create index if not exists orders_created_at_idx on public.orders(created_at desc);
+alter table public.orders enable row level security;
+drop policy if exists "business owners manage orders" on public.orders;
+create policy "business owners manage orders" on public.orders for all to authenticated using(exists(select 1 from public.businesses b where b.id=business_id and b.owner_id=auth.uid())) with check(exists(select 1 from public.businesses b where b.id=business_id and b.owner_id=auth.uid()));
